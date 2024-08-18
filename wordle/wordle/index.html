@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wordle 게임</title>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    <script>
+        // Firebase 설정
+        var firebaseConfig = {
+            apiKey: "AIzaSyADruGTK3NNMlT-kZBY4RCmDsh56Xo2aQw",
+            authDomain: "wordle-870a2.firebaseapp.com",
+            databaseURL: "https://wordle-870a2-default-rtdb.firebaseio.com",
+            projectId: "wordle-870a2",
+            storageBucket: "wordle-870a2.appspot.com",
+            messagingSenderId: "651046616810",
+            appId: "1:651046616810:web:8dd246b97d0c3931e2e193"
+        };
+        // Firebase 초기화
+        firebase.initializeApp(firebaseConfig);
+    </script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin: 20px;
+        }
+
+        #game-container {
+            margin: 20px auto;
+            max-width: 400px;
+        }
+
+        #word-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 5px;
+            margin: 20px 0;
+        }
+
+        #word-grid div {
+            width: 60px;
+            height: 60px;
+            border: 1px solid #000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        #ranking {
+            margin-top: 20px;
+        }
+
+        .correct {
+            background-color: green;
+            color: white;
+        }
+
+        .present {
+            background-color: yellow;
+            color: black;
+        }
+
+        .absent {
+            background-color: gray;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <h1>Wordle 게임</h1>
+    <div id="game-container">
+        <input type="text" id="nickname" placeholder="닉네임을 입력하세요" maxlength="10">
+        <button onclick="startGame()">게임 시작</button>
+        <div id="word-grid"></div>
+        <input type="text" id="guess-input" maxlength="5" disabled placeholder="단어를 입력하세요">
+        <button id="guess-button" onclick="submitGuess()" disabled>추측</button>
+    </div>
+
+    <h2>랭킹</h2>
+    <div id="ranking"></div>
+    <h2>정답의 뜻</h2>
+    <div id="meaning"></div>
+
+    <script>
+        // 고정된 단어와 뜻
+        const chosenWord = "apple";
+        const chosenWordMeaning = "사과 (Apple) - 한 종류의 과일로, 달콤하고 아삭한 맛을 가지고 있습니다.";
+
+        let attempts = 0;
+        let nickname = '';
+        const maxAttempts = 10;
+
+        // 게임 시작 함수
+        function startGame() {
+            nickname = document.getElementById('nickname').value;
+            if (nickname === '') {
+                alert('닉네임을 입력하세요!');
+                return;
+            }
+            attempts = 0;
+            document.getElementById('guess-input').disabled = false;
+            document.getElementById('guess-button').disabled = false;
+            document.getElementById('meaning').innerHTML = '';  // 뜻 초기화
+            generateGrid();
+        }
+
+        function generateGrid() {
+            const grid = document.getElementById('word-grid');
+            grid.innerHTML = '';
+            for (let i = 0; i < 5; i++) {
+                const cell = document.createElement('div');
+                cell.setAttribute('id', `cell-${i}`);
+                grid.appendChild(cell);
+            }
+        }
+
+        // 단어 추측 함수
+        function submitGuess() {
+            const guess = document.getElementById('guess-input').value.toLowerCase();
+            if (guess.length !== 5) {
+                alert('5글자 단어를 입력하세요!');
+                return;
+            }
+            attempts++;
+            updateGrid(guess);
+            if (guess === chosenWord) {
+                alert('정답입니다!');
+                showMeaning();
+                submitScore(nickname, attempts);
+                getRanking();
+                resetGame();
+            } else if (attempts >= maxAttempts) {
+                alert(`실패! 정답은 ${chosenWord}였습니다.`);
+                showMeaning();
+                resetGame();
+            }
+        }
+
+        function updateGrid(guess) {
+            for (let i = 0; i < 5; i++) {
+                const cell = document.getElementById(`cell-${i}`);
+                cell.textContent = guess[i];
+
+                // 기존 클래스 제거
+                cell.classList.remove('correct', 'present', 'absent');
+
+                // 정답 위치에 있는 문자
+                if (guess[i] === chosenWord[i]) {
+                    cell.classList.add('correct');
+                } 
+                // 정답에 포함되지만 위치가 다른 문자
+                else if (chosenWord.includes(guess[i])) {
+                    cell.classList.add('present');
+                } 
+                // 정답에 포함되지 않는 문자
+                else {
+                    cell.classList.add('absent');
+                }
+            }
+        }
+
+        function showMeaning() {
+            // 정답 단어의 뜻을 표시
+            const meaningDiv = document.getElementById('meaning');
+            meaningDiv.textContent = `정답의 뜻: ${chosenWordMeaning}`;
+        }
+
+        function resetGame() {
+            document.getElementById('guess-input').value = '';
+            document.getElementById('guess-input').disabled = true;
+            document.getElementById('guess-button').disabled = true;
+        }
+
+        // Firebase와 상호작용하는 함수들
+        function submitScore(nickname, attempts) {
+            const newScoreRef = firebase.database().ref('rankings').push();
+            newScoreRef.set({
+                nickname: nickname,
+                attempts: attempts
+            });
+        }
+
+        function getRanking() {
+            firebase.database().ref('rankings')
+                .orderByChild('attempts')
+                .limitToFirst(30)  // 여기서 20으로 수정하여 상위 20개의 랭킹을 가져옴
+                .on('value', (snapshot) => {
+                    const rankingDiv = document.getElementById('ranking');
+                    rankingDiv.innerHTML = '';
+                    snapshot.forEach((childSnapshot) => {
+                        const rank = childSnapshot.val();
+                        const rankElement = document.createElement('div');
+                        rankElement.textContent = `${rank.nickname}: ${rank.attempts}회 시도`;
+                        rankingDiv.appendChild(rankElement);
+                    });
+                });
+        }
+
+        // 페이지 로드 시 랭킹 불러오기
+        getRanking();
+    </script>
+</body>
+</html>
+
