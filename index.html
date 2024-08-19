@@ -73,12 +73,18 @@
 <body>
     <h1>Wordle 게임</h1>
     <div id="game-container">
-        <input type="text" id="nickname" placeholder="닉네임을 입력하세요" maxlength="10">
+        <!-- 학번을 숫자로만 입력할 수 있도록 수정 -->
+        <input type="number" id="nickname" placeholder="숫자로 학번을 입력하세요" maxlength="10">
         <button onclick="startGame()">게임 시작</button>
         <div id="word-grid"></div>
         <input type="text" id="guess-input" maxlength="5" disabled placeholder="단어를 입력하세요">
         <button id="guess-button" onclick="submitGuess()" disabled>추측</button>
     </div>
+    <p id="game-description">
+        이 게임은 5글자의 영단어를 맞추는 퍼즐 게임입니다. 각 시도 후에, 글자의 색상이 노란색이라면,
+        글자는 맞지만 위치는 틀린 것이고 초록색이라면, 글자와 위치를 모두 맞춘 것입니다.
+        정답을 맞추기 위해 최대 10번의 시도가 주어집니다.
+    </p>
 
     <h2>랭킹</h2>
     <div id="ranking"></div>
@@ -86,9 +92,18 @@
     <div id="meaning"></div>
 
     <script>
-        // 고정된 단어와 뜻
-        const chosenWord = "apple";
-        const chosenWordMeaning = "사과 (Apple) - 한 종류의 과일로, 달콤하고 아삭한 맛을 가지고 있습니다.";
+        // 5개의 정답 후보 단어 배열 및 뜻
+        const wordList = ["apple", "grape", "lemon", "peach", "melon"];
+        let chosenWord = ""; // 선택된 정답 단어
+        let chosenWordMeaning = ""; // 선택된 단어의 뜻
+
+        const wordMeanings = {
+            "apple": "사과 (Apple) - 한 종류의 과일로, 달콤하고 아삭한 맛을 가지고 있습니다.",
+            "grape": "포도 (Grape) - 작은 크기의 달콤한 과일로, 여러 개의 알갱이로 이루어져 있습니다.",
+            "lemon": "레몬 (Lemon) - 신맛이 강한 노란색 과일로, 주스로도 많이 사용됩니다.",
+            "peach": "복숭아 (Peach) - 부드러운 털이 있는 달콤한 과일로, 여름철에 많이 먹습니다.",
+            "melon": "멜론 (Melon) - 크고 달콤한 과일로, 여름철에 시원하게 먹기 좋습니다."
+        };
 
         let attempts = 0;
         let nickname = '';
@@ -97,10 +112,23 @@
         // 게임 시작 함수
         function startGame() {
             nickname = document.getElementById('nickname').value;
-            if (nickname === '') {
-                alert('닉네임을 입력하세요!');
+
+            // 숫자가 아닌 값이 입력된 경우 경고 메시지를 표시하고 중단
+            if (!/^\d+$/.test(nickname)) {
+                alert('숫자로만 학번을 입력하세요!');
                 return;
             }
+
+            if (nickname === '') {
+                alert('학번을 입력하세요!');
+                return;
+            }
+
+            // 랜덤으로 정답 단어 선택
+            const randomIndex = Math.floor(Math.random() * wordList.length);
+            chosenWord = wordList[randomIndex];
+            chosenWordMeaning = wordMeanings[chosenWord];
+
             attempts = 0;
             document.getElementById('guess-input').disabled = false;
             document.getElementById('guess-button').disabled = false;
@@ -187,7 +215,7 @@
         function getRanking() {
             firebase.database().ref('rankings')
                 .orderByChild('attempts')
-                .limitToFirst(30)  // 여기서 20으로 수정하여 상위 20개의 랭킹을 가져옴
+                .limitToFirst(30)  // 여기서 30으로 수정하여 상위 30개의 랭킹을 가져옴
                 .on('value', (snapshot) => {
                     const rankingDiv = document.getElementById('ranking');
                     rankingDiv.innerHTML = '';
@@ -205,4 +233,3 @@
     </script>
 </body>
 </html>
-
